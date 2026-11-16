@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>הזמנות לסין</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&family=Rubik:wght@500;700&display=swap">
+<style>
+/* Layout: sticky totals bar on top, order settings, then one block per model with a row per combo. */
+:root{
+  --bg:#f1f5f5; --surface:#ffffff; --sunken:#e8eeee; --ink:#12292c; --muted:#587075; --line:#d3dedf;
+  --accent:#0b6e78; --accent-ink:#ffffff; --accent-soft:#dcefF0;
+  --bar-bg:#0a454c; --bar-fg:#eaf6f6; --bar-muted:#9cc4c8; --gold:#f0c060;
+  --ok:#1f7a4d; --ok-soft:#dff3e8; --warn:#9a5b00; --warn-soft:#fdeccb; --bad:#b3261e; --bad-soft:#fbe1df;
+  --display:"Rubik","Heebo",system-ui,"Segoe UI",Arial,sans-serif;
+  --body:"Heebo",system-ui,"Segoe UI",Arial,sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c1618; --surface:#132225; --sunken:#0f1c1e; --ink:#e3eeee; --muted:#8ea6a9; --line:#273b3e;
+  --accent:#4cc0cc; --accent-ink:#04262a; --accent-soft:#16383d;
+  --bar-bg:#0a2e33; --bar-fg:#eaf6f6; --bar-muted:#8db5b9; --gold:#f0c060;
+  --ok:#6fd19c; --ok-soft:#143325; --warn:#f2b755; --warn-soft:#3a2c0e; --bad:#ff8a80; --bad-soft:#3d1a18;
+  color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0c1618; --surface:#132225; --sunken:#0f1c1e; --ink:#e3eeee; --muted:#8ea6a9; --line:#273b3e;
+  --accent:#4cc0cc; --accent-ink:#04262a; --accent-soft:#16383d;
+  --bar-bg:#0a2e33; --bar-fg:#eaf6f6; --bar-muted:#8db5b9; --gold:#f0c060;
+  --ok:#6fd19c; --ok-soft:#143325; --warn:#f2b755; --warn-soft:#3a2c0e; --bad:#ff8a80; --bad-soft:#3d1a18;
+  color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bar-bg)}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* totals bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--bar-bg);color:var(--bar-fg)}
+.bar-in{max-width:1180px;margin:0 auto;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;align-items:center;gap:8px 22px}
+.stat{display:flex;flex-direction:column;min-width:0}
+.stat small{font-size:11.5px;color:var(--bar-muted)}
+.stat b{font-family:var(--display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;line-height:1.15}
+.stat.total b{color:var(--gold);font-size:24px}
+.stat.cost b{font-size:16px}
+.bar-end{margin-inline-start:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.chip{font-size:12.5px;border-radius:99px;padding:3px 10px;background:var(--warn-soft);color:var(--warn);font-weight:500}
+
+.wrap{max-width:1180px;margin:0 auto;padding-block:18px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+h1{font-family:var(--display);font-size:24px;margin:0;text-wrap:balance}
+h2{font-family:var(--display);font-size:16px;margin:0}
+.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.head p{margin:0;color:var(--muted)}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 13px;cursor:pointer;font-weight:500;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.btn.onbar{background:var(--gold);border-color:var(--gold);color:#2b1d00;font-weight:700}
+.btn.danger{color:var(--bad)}
+.btn.armed{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.ghost{border-style:dashed;color:var(--accent);background:transparent}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px}
+.grid{display:flex;flex-wrap:wrap;gap:10px 12px}
+.fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fld>span{font-size:12px;color:var(--muted)}
+.fld.grow{flex:1 1 240px}
+input[type=text],input[type=date],textarea{border:1px solid var(--line);background:var(--sunken);border-radius:7px;padding:6px 9px;width:100%;min-width:0}
+textarea{resize:vertical;min-height:38px}
+input:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 2px var(--accent-soft)}
+.w-s{width:92px}.w-m{width:150px}
+
+.rates{border-top:1px solid var(--line);padding-top:12px;align-items:flex-end}
+.rate-note{font-size:13px;color:var(--muted);flex:1 1 220px;align-self:center}
+.rate-note.bad{color:var(--warn)}
+
+.example{background:var(--accent-soft);border-radius:var(--r);padding:9px 14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
+
+/* model */
+.model{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.m-head{padding:14px;display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-start}
+.m-head .style input{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.02em}
+.price-row{display:flex;gap:6px}
+.price-row input{width:86px}
+.seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{border:0;background:var(--sunken);padding:6px 10px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+
+.variants{border-top:1px solid var(--line)}
+.variant{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;padding:10px 14px;border-bottom:1px solid var(--line)}
+.thumb{width:52px;height:66px;border:1px dashed var(--line);border-radius:7px;background:var(--sunken) center/cover no-repeat;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;color:var(--muted);cursor:pointer;flex:none;line-height:1.2}
+.thumb.has{border-style:solid;color:transparent}
+.thumb:hover{border-color:var(--accent)}
+.letter input{width:54px;text-align:center;font-family:var(--display);font-weight:700}
+.sizes{display:flex;gap:4px;align-items:flex-end;flex-wrap:wrap}
+.sz{display:flex;flex-direction:column;align-items:center;gap:3px}
+.sz span{font-size:11.5px;color:var(--muted);font-weight:500;letter-spacing:.03em}
+.sz input{width:38px;text-align:center;padding:6px 2px}
+.sum{align-self:flex-end;margin-inline-start:4px;font-size:12.5px;font-weight:700;border-radius:99px;padding:6px 9px;background:var(--ok-soft);color:var(--ok);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sum.off{background:var(--bad-soft);color:var(--bad)}
+.packs input{width:64px;text-align:center;font-weight:700}
+.pcs output{display:block;padding:6px 0;min-width:48px;font-weight:700;font-variant-numeric:tabular-nums}
+.x{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:6px 8px;border-radius:6px;margin-inline-start:auto}
+.x:hover{color:var(--bad);background:var(--bad-soft)}
+
+.m-foot{padding:10px 14px;display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;justify-content:space-between;background:var(--sunken)}
+.m-actions{display:flex;flex-wrap:wrap;gap:6px}
+.m-actions .btn{padding:5px 11px;font-size:13.5px}
+.m-cost{font-variant-numeric:tabular-nums;text-align:end}
+.m-cost b{font-family:var(--display)}
+.m-cost .ils{color:var(--accent);font-weight:700}
+.m-cost small{color:var(--muted);display:block}
+
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.check{display:flex;gap:6px;align-items:center;font-size:13.5px;color:var(--muted)}
+.toast{position:fixed;inset-inline:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));margin:0 auto;width:max-content;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:9px;z-index:20;font-weight:500;text-align:center}
+@media (max-width:560px){ .stat b{font-size:17px} .stat.total b{font-size:20px} .bar-in{gap:6px 16px} }
+</style>
+
+<div dir="rtl" lang="he">
+<div class="bar"><div class="bar-in">
+  <div class="stat"><small>דגמים</small><b id="t-models">0</b></div>
+  <div class="stat"><small>קומבואים</small><b id="t-combos">0</b></div>
+  <div class="stat"><small>חבילות</small><b id="t-packs">0</b></div>
+  <div class="stat"><small>יחידות</small><b id="t-pcs">0</b></div>
+  <div class="stat cost"><small>עלות במטבע המקור</small><b id="t-cost" dir="ltr">—</b></div>
+  <div class="stat total"><small>סה״כ הזמנה בשקלים</small><b id="t-ils" dir="ltr">—</b></div>
+  <div class="bar-end"><span class="chip" id="t-warn" hidden></span><button class="btn onbar" data-act="xlsx">הורד אקסל</button></div>
+</div></div>
+
+<div class="wrap">
+  <div class="head"><h1>הזמנות לסין</h1><p>בונים דגמים וקומבואים, ומורידים קובץ אקסל מוכן לשליחה למפעל.</p></div>
+
+  <div class="example" id="example" hidden><span>אלה נתוני דוגמה מתוך הקובץ ששלחת, כדי לראות איך זה עובד.</span><button class="btn" data-act="new">נקה והתחל הזמנה חדשה</button></div>
+
+  <div class="panel">
+    <h2>פרטי ההזמנה</h2>
+    <div class="grid">
+      <label class="fld grow"><span>כותרת ההזמנה (שורה ראשונה באקסל)</span><input type="text" id="o-title" data-o="title" dir="ltr"></label>
+      <label class="fld w-m"><span>תאריך</span><input type="date" id="o-date" data-o="date"></label>
+      <label class="fld w-m"><span>מפעל (FACTORY)</span><input type="text" id="o-factory" data-o="factory" dir="ltr"></label>
+      <label class="fld w-s"><span>יחידות בחבילה</span><input type="text" id="o-pack" data-o="packSize" inputmode="numeric" dir="ltr"></label>
+      <label class="fld grow"><span>מידות (מופרדות בפסיק)</span><input type="text" id="o-sizes" data-o="sizes" dir="ltr"></label>
+    </div>
+    <div class="grid rates">
+      <label class="fld w-m"><span>שער דולר (₪ ל-$1)</span><input type="text" id="r-usd" data-r="USD" inputmode="decimal" dir="ltr" placeholder="הזן שער"></label>
+      <label class="fld w-m"><span>שער יואן (₪ ל-¥1)</span><input type="text" id="r-cny" data-r="CNY" inputmode="decimal" dir="ltr" placeholder="הזן שער"></label>
+      <button class="btn" data-act="rates">עדכן שער עכשיו</button>
+      <span class="rate-note" id="rate-note"></span>
+    </div>
+  </div>
+
+  <div id="models" style="display:flex;flex-direction:column;gap:16px"></div>
+  <button class="btn ghost" data-act="addm" style="padding:12px">+ דגם חדש</button>
+
+  <div class="panel">
+    <div class="actions">
+      <button class="btn primary" data-act="xlsx">הורד אקסל להזמנה</button>
+      <button class="btn" data-act="savejson">שמור קובץ הזמנה</button>
+      <label class="btn">טען קובץ הזמנה<input type="file" id="load-json" accept=".json,application/json" hidden></label>
+      <button class="btn danger" data-act="new" data-confirm="1">הזמנה חדשה</button>
+    </div>
+    <label class="check"><input type="checkbox" id="o-pcs" data-o="pcsCol"> הוסף לאקסל עמודת סה״כ יחידות (PCS)</label>
+  </div>
+</div>
+<div class="toast" id="toast" hidden role="status"></div>
+</div>
+
+<script src="vendor/exceljs.min.js"></script>
+<script>
+(function(){
+'use strict';
+document.documentElement.dir='rtl'; document.documentElement.lang='he';
+const KEY='china-orders-v1';
+const $=s=>document.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,9);
+const n=x=>{const v=parseFloat(String(x??'').replace(',','.'));return isFinite(v)?v:0};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nf=new Intl.NumberFormat('en-US',{maximumFractionDigits:2});
+const SYM={CNY:'¥',USD:'$'};
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const DEF_SIZES=['XS','S','M','L','XL','2XL','3XL'];
+const DEF_RATIO={XS:1,S:1,M:2,L:2,XL:2,'2XL':1};
+
+function newVariant(src){return {id:uid(),letter:'',color:'',img:null,iw:0,ih:0,ratio:src?{...src.ratio}:{...DEF_RATIO},packs:src?src.packs:''}}
+function newModel(style){return {id:uid(),style:style||'',desc:'',price:'',cur:state?state.lastCur||'CNY':'CNY',variants:[newVariant()]}}
+function blank(){return {title:'',date:today(),factory:'',packSize:9,sizes:[...DEF_SIZES],pcsCol:false,rates:{USD:'',CNY:'',note:''},lastCur:'CNY',example:false,models:[]}}
+function example(){
+  const s=blank(); s.title='PEACKOC     ORDER - SKIRTS SUMMER 2027'; s.example=true;
+  const mk=(style,desc,price,vs)=>({id:uid(),style,desc,price,cur:'CNY',variants:vs.map(([letter,color,packs])=>({id:uid(),letter,color,img:null,iw:0,ih:0,ratio:{...DEF_RATIO},packs}))});
+  s.models=[
+    mk('272101','חצאית נשים גזרת A, 6 פאנלים, חגורת PU חומה עם אבזם מתכת זהב, 2 קפלים בכל צד, בטנת כותנה.','',[['A','צבע: שחור שטוף. בטנה: שחור',13],['B','צבע: ג׳ינס שחור. בטנה: שחור',13],['C','צבע: ג׳ינס. בטנה: ג׳ינס',13]]),
+    mk('272102','חצאית נשים גזרת A, חלק עליון (יוק) + 2 חגורות ברוחב 1.5 ס"מ, בטנת כותנה.','',[['A','צבע: שחור-50. בטנה: שחור',13],['B','צבע: ג׳ינס. בטנה: ג׳ינס',12]])
+  ];
+  return s;
+}
+
+let state=null;
+try{const raw=localStorage.getItem(KEY); if(raw) state=normalize(JSON.parse(raw));}catch(e){}
+if(!state) state=example();
+
+function normalize(s){
+  const b=blank(); const o=Object.assign(b,s||{});
+  o.rates=Object.assign({USD:'',CNY:'',note:''},s&&s.rates||{});
+  if(!Array.isArray(o.sizes)||!o.sizes.length) o.sizes=[...DEF_SIZES];
+  o.models=(o.models||[]).map(m=>({id:m.id||uid(),style:m.style||'',desc:m.desc||'',price:m.price??'',cur:m.cur==='USD'?'USD':'CNY',
+    variants:(m.variants&&m.variants.length?m.variants:[newVariant()]).map(v=>({id:v.id||uid(),letter:v.letter||'',color:v.color||'',img:v.img||null,iw:v.iw||0,ih:v.ih||0,ratio:v.ratio||{},packs:v.packs??''}))}));
+  return o;
+}
+
+let saveT=null, saveWarned=false;
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>{
+  try{localStorage.setItem(KEY,JSON.stringify(state));}
+  catch(e){ if(!saveWarned){saveWarned=true;toast('השמירה האוטומטית בדפדפן לא זמינה כאן. השתמש ב״שמור קובץ הזמנה״ כדי לא לאבד את העבודה.',6000);} }
+},350)}
+
+/* ---------- calculations ---------- */
+const ratioSum=v=>state.sizes.reduce((a,s)=>a+n(v.ratio[s]),0);
+const vPcs=v=>n(v.packs)*ratioSum(v);
+const mPcs=m=>m.variants.reduce((a,v)=>a+vPcs(v),0);
+const rate=cur=>n(state.rates[cur]);
+const money=(cur,x)=>SYM[cur]+nf.format(x);
+const ils=x=>'₪'+nf.format(Math.round(x));
+
+function totals(){
+  const t={models:state.models.length,combos:0,packs:0,pcs:0,cost:{CNY:0,USD:0},ils:0,missing:false,off:0};
+  for(const m of state.models){
+    const pcs=mPcs(m), cost=n(m.price)*pcs;
+    t.cost[m.cur]+=cost;
+    if(cost>0){ if(rate(m.cur)>0) t.ils+=cost*rate(m.cur); else t.missing=true; }
+    for(const v of m.variants){t.combos++;t.packs+=n(v.packs);t.pcs+=vPcs(v); if(ratioSum(v)!==n(state.packSize)) t.off++;}
+  }
+  return t;
+}
+
+function refresh(){
+  const pack=n(state.packSize);
+  for(const m of state.models){
+    const el=document.querySelector('[data-m="'+m.id+'"]'); if(!el) continue;
+    for(const v of m.variants){
+      const ve=el.querySelector('[data-v="'+v.id+'"]'); if(!ve) continue;
+      const rs=ratioSum(v), sum=ve.querySelector('[data-out=sum]');
+      sum.textContent=rs+' / '+pack; sum.classList.toggle('off',rs!==pack);
+      sum.title=rs===pack?'החבילה מלאה':'חבילה צריכה להכיל '+pack+' יחידות';
+      ve.querySelector('[data-out=pcs]').textContent=nf.format(vPcs(v));
+    }
+    const pcs=mPcs(m), price=n(m.price), cost=price*pcs, out=el.querySelector('[data-out=mcost]');
+    let h='<b>'+nf.format(pcs)+'</b> יחידות לדגם';
+    if(price>0){
+      h+=' · עלות <b dir="ltr">'+money(m.cur,cost)+'</b>';
+      if(rate(m.cur)>0) h+=' · <span class="ils" dir="ltr">'+ils(cost*rate(m.cur))+'</span><small>ליחידה: <span dir="ltr">₪'+nf.format(price*rate(m.cur))+'</span></small>';
+      else h+='<small>חסר שער המרה לשקלים</small>';
+    } else h+='<small>הזן עלות ליחידה כדי לראות עלות לדגם</small>';
+    out.innerHTML=h;
+  }
+  const t=totals();
+  $('#t-models').textContent=t.models; $('#t-combos').textContent=t.combos;
+  $('#t-packs').textContent=nf.format(t.packs); $('#t-pcs').textContent=nf.format(t.pcs);
+  const parts=[]; if(t.cost.CNY>0) parts.push(money('CNY',t.cost.CNY)); if(t.cost.USD>0) parts.push(money('USD',t.cost.USD));
+  $('#t-cost').textContent=parts.length?parts.join(' + '):'—';
+  $('#t-ils').textContent=parts.length?(t.missing?(t.ils>0?ils(t.ils)+' +?':'חסר שער'):ils(t.ils)):'—';
+  const w=$('#t-warn'); w.hidden=!t.off; w.textContent=t.off===1?'קומבו אחד לא מסתכם ל-'+pack:t.off+' קומבואים לא מסתכמים ל-'+pack;
+}
+
+/* ---------- rendering ---------- */
+function variantHTML(v){
+  const sizes=state.sizes.map(s=>'<label class="sz"><span>'+esc(s)+'</span><input type="text" id="r-'+v.id+'-'+esc(s)+'" data-f="ratio" data-s="'+esc(s)+'" inputmode="numeric" value="'+esc(v.ratio[s]||'')+'"></label>').join('');
+  return '<div class="variant" data-v="'+v.id+'">'
+   +'<label class="thumb'+(v.img?' has':'')+'" title="'+(v.img?'החלף תמונה':'הוסף תמונה')+'"'+(v.img?' style="background-image:url('+v.img+')"':'')+'><input type="file" id="img-'+v.id+'" accept="image/*" hidden data-f="img">'+(v.img?'':'+ תמונה')+'</label>'
+   +'<label class="fld letter"><span>קומבו</span><input type="text" id="l-'+v.id+'" data-f="letter" dir="ltr" maxlength="4" value="'+esc(v.letter)+'"></label>'
+   +'<label class="fld grow"><span>צבע / פרטי הקומבו</span><input type="text" id="c-'+v.id+'" data-f="color" value="'+esc(v.color)+'"></label>'
+   +'<div class="sizes" dir="ltr">'+sizes+'<span class="sum num" data-out="sum"></span></div>'
+   +'<label class="fld packs"><span>חבילות</span><input type="text" id="p-'+v.id+'" data-f="packs" inputmode="numeric" dir="ltr" value="'+esc(v.packs)+'"></label>'
+   +'<div class="fld pcs"><span>יחידות</span><output data-out="pcs"></output></div>'
+   +'<button class="x" data-act="delv" aria-label="מחק קומבו" title="מחק קומבו">×</button></div>';
+}
+function modelHTML(m){
+  return '<section class="model" data-m="'+m.id+'"><div class="m-head">'
+   +'<label class="fld style w-m"><span>מספר דגם</span><input type="text" id="s-'+m.id+'" data-f="style" dir="ltr" value="'+esc(m.style)+'"></label>'
+   +'<label class="fld grow"><span>תיאור הדגם (משותף לכל הקומבואים)</span><textarea id="d-'+m.id+'" data-f="desc" rows="2">'+esc(m.desc)+'</textarea></label>'
+   +'<div class="fld"><span>עלות ליחידה</span><div class="price-row"><input type="text" id="pr-'+m.id+'" data-f="price" inputmode="decimal" dir="ltr" value="'+esc(m.price)+'">'
+   +'<div class="seg" dir="ltr"><button data-cur="CNY" aria-pressed="'+(m.cur==='CNY')+'">¥ RMB</button><button data-cur="USD" aria-pressed="'+(m.cur==='USD')+'">$ USD</button></div></div></div>'
+   +'</div><div class="variants">'+m.variants.map(variantHTML).join('')+'</div>'
+   +'<div class="m-foot"><div class="m-actions"><button class="btn" data-act="addv">+ קומבו</button><button class="btn" data-act="dup">שכפל דגם</button><button class="btn danger" data-act="delm" data-confirm="1">מחק דגם</button></div>'
+   +'<div class="m-cost" data-out="mcost"></div></div></section>';
+}
+function render(){
+  $('#models').innerHTML=state.models.map(modelHTML).join('');
+  $('#o-title').value=state.title; $('#o-date').value=state.date; $('#o-factory').value=state.factory;
+  $('#o-pack').value=state.packSize; $('#o-sizes').value=state.sizes.join(', '); $('#o-pcs').checked=!!state.pcsCol;
+  $('#r-usd').value=state.rates.USD; $('#r-cny').value=state.rates.CNY;
+  $('#example').hidden=!state.example;
+  rateNote(); refresh();
+}
+function rateNote(msg,bad){
+  const el=$('#rate-note'); el.textContent=msg||state.rates.note||'השער משמש להצגת העלות בשקלים בלבד.'; el.classList.toggle('bad',!!bad);
+}
+
+/* ---------- helpers ---------- */
+function nextStyle(){
+  const last=state.models[state.models.length-1]; if(!last) return '';
+  const mm=String(last.style).match(/^(.*?)(\d+)$/); if(!mm) return '';
+  return mm[1]+String(parseInt(mm[2],10)+1).padStart(mm[2].length,'0');
+}
+function nextLetter(m){
+  const ls=m.variants.map(v=>v.letter.toUpperCase()).filter(l=>/^[A-Z]$/.test(l));
+  if(!ls.length) return 'A';
+  return String.fromCharCode(Math.min(90,Math.max(...ls.map(l=>l.charCodeAt(0)))+1));
+}
+let toastT=null;
+function toast(msg,ms){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,ms||3200)}
+function find(el){
+  const me=el.closest('[data-m]'), ve=el.closest('[data-v]');
+  const m=me&&state.models.find(x=>x.id===me.dataset.m);
+  const v=m&&ve&&m.variants.find(x=>x.id===ve.dataset.v);
+  return {m,v};
+}
+function touched(){ if(state.example){state.example=false;$('#example').hidden=true;} save(); }
+
+function loadImage(file){return new Promise((res,rej)=>{
+  const url=URL.createObjectURL(file), im=new Image();
+  im.onload=()=>{const k=Math.min(1,700/Math.max(im.width,im.height)), w=Math.round(im.width*k), h=Math.round(im.height*k);
+    const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,w,h);g.drawImage(im,0,0,w,h);
+    URL.revokeObjectURL(url);res({img:c.toDataURL('image/jpeg',0.88),iw:w,ih:h})};
+  im.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('img'))}; im.src=url;
+})}
+
+/* ---------- file saving ---------- */
+const dlP=(window.claude&&window.claude.use)?window.claude.use('downloads').catch(()=>null):Promise.resolve(null);
+async function saveFile(filename,blob){
+  const dl=await dlP;
+  if(dl){
+    try{await dl.save({filename,data:blob});toast('הקובץ נשמר');}
+    catch(e){ if(e&&e.code==='declined') return; toast('לא ניתן לשמור קובץ בתצוגה זו.'); }
+    return;
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500); toast('הקובץ ירד');
+}
+const fileBase=()=>((state.title||'order').trim().replace(/[^\w֐-׿]+/g,'_').replace(/^_+|_+$/g,'')||'order');
+
+/* ---------- Excel ---------- */
+async function exportXlsx(){
+  if(!window.ExcelJS){toast('רכיב האקסל לא נטען. בדוק את החיבור לאינטרנט ורענן את הדף.');return}
+  const rows=[]; for(const m of state.models) for(const v of m.variants) rows.push({m,v});
+  if(!rows.length){toast('אין דגמים בהזמנה');return}
+  const S=state.sizes, pcs=!!state.pcsCol, qtyCol=5+S.length, cols=qtyCol+(pcs?1:0);
+  const wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('Sheet1');
+  ws.columns=[{width:10},{width:11},{width:52},{width:26},...S.map(()=>({width:6})),{width:8},...(pcs?[{width:8}]:[])];
+  ws.mergeCells(1,1,1,cols); ws.getCell(1,1).value=state.title||'ORDER'; ws.getCell(1,1).font={bold:true,size:14};
+  ws.mergeCells(2,1,2,cols); ws.getCell(2,1).value='DATE: '+(state.date||today()); ws.getCell(2,1).font={bold:true};
+  const thin={style:'thin'}, border={top:thin,left:thin,bottom:thin,right:thin}, center={horizontal:'center',vertical:'middle',wrapText:true};
+  const head=['FACTORY','STYLE NO','תאור','IMAGE',...S,'QTY',...(pcs?['PCS']:[])];
+  head.forEach((h,i)=>{const c=ws.getCell(3,i+1);c.value=h;c.font={bold:true};c.alignment=center;c.border=border;c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9D9D9'}}});
+  let r=3, totalPacks=0, totalPcs=0;
+  for(const {m,v} of rows){
+    r++; const row=ws.getRow(r); row.height=95;
+    const vals=[state.factory||null,(m.style+v.letter)||null,[m.desc,v.color].map(x=>x.trim()).filter(Boolean).join(' ')||null,null,
+      ...S.map(s=>n(v.ratio[s])||null), n(v.packs)||null, ...(pcs?[vPcs(v)||null]:[])];
+    vals.forEach((val,i)=>{const c=row.getCell(i+1);c.value=val;c.alignment=center;c.border=border;c.font={size:11}});
+    totalPacks+=n(v.packs); totalPcs+=vPcs(v);
+    if(v.img){
+      const ih=118, iw=Math.min(178,Math.round(ih*(v.iw||3)/(v.ih||4))), h2=Math.round(iw*(v.ih||4)/(v.iw||3));
+      const id=wb.addImage({base64:v.img,extension:'jpeg'});
+      ws.addImage(id,{tl:{col:3.04,row:r-1+0.04},ext:{width:iw,height:Math.min(ih,h2)},editAs:'oneCell'});
+    }
+  }
+  const tr=r+1, L=i=>ws.getColumn(i).letter;
+  const tc=ws.getCell(tr,3); tc.value='TOTAL'; tc.font={bold:true}; tc.alignment=center;
+  const q=ws.getCell(tr,qtyCol); q.value={formula:'SUM('+L(qtyCol)+'4:'+L(qtyCol)+r+')',result:totalPacks}; q.font={bold:true}; q.alignment=center;
+  if(pcs){const p=ws.getCell(tr,qtyCol+1); p.value={formula:'SUM('+L(qtyCol+1)+'4:'+L(qtyCol+1)+r+')',result:totalPcs}; p.font={bold:true}; p.alignment=center;}
+  const buf=await wb.xlsx.writeBuffer();
+  await saveFile(fileBase()+'.xlsx',new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+}
+
+/* ---------- exchange rates ---------- */
+async function fetchRates(silent){
+  if(!silent) rateNote('מעדכן שער…');
+  const sources=[
+    async()=>{const d=await (await fetch('https://open.er-api.com/v6/latest/USD')).json(); if(!d.rates||!d.rates.ILS) throw 0; return {USD:d.rates.ILS,CNY:d.rates.ILS/d.rates.CNY}},
+    async()=>{const d=await (await fetch('https://api.frankfurter.app/latest?from=USD&to=ILS,CNY')).json(); if(!d.rates||!d.rates.ILS) throw 0; return {USD:d.rates.ILS,CNY:d.rates.ILS/d.rates.CNY}}
+  ];
+  for(const src of sources){
+    try{
+      const x=await src();
+      state.rates.USD=x.USD.toFixed(4); state.rates.CNY=x.CNY.toFixed(4);
+      state.rates.note='השער עודכן אוטומטית ב-'+new Date().toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})+'.';
+      $('#r-usd').value=state.rates.USD; $('#r-cny').value=state.rates.CNY; rateNote(); refresh(); save(); return;
+    }catch(e){}
+  }
+  rateNote(state.rates.USD||state.rates.CNY?'לא ניתן למשוך שער עדכני בתצוגה זו. מוצג השער האחרון שהוזן.':'לא ניתן למשוך שער אוטומטית בתצוגה זו. הזן שער ידנית, או פתח את קובץ היישום בדפדפן במחשב.',true);
+}
+
+/* ---------- events ---------- */
+document.addEventListener('input',e=>{
+  const el=e.target;
+  if(el.dataset.o){
+    const k=el.dataset.o;
+    if(k==='pcsCol') state.pcsCol=el.checked;
+    else if(k==='sizes') return; // applied on change
+    else state[k]=el.value;
+    touched(); refresh(); return;
+  }
+  if(el.dataset.r){state.rates[el.dataset.r]=el.value;state.rates.note='שער שהוזן ידנית.';rateNote();save();refresh();return}
+  const f=el.dataset.f; if(!f||f==='img') return;
+  const {m,v}=find(el); if(!m) return;
+  if(f==='ratio'){ if(v) v.ratio[el.dataset.s]=el.value; }
+  else if(v&&(f==='letter'||f==='color'||f==='packs')) v[f]=el.value;
+  else m[f]=el.value;
+  touched(); refresh();
+});
+document.addEventListener('change',async e=>{
+  const el=e.target;
+  if(el.dataset.o==='sizes'){
+    const list=[...new Set(el.value.split(/[,،\s]+/).map(s=>s.trim().toUpperCase()).filter(Boolean))];
+    if(list.length){state.sizes=list;touched();render();} else el.value=state.sizes.join(', ');
+    return;
+  }
+  if(el.id==='load-json'){
+    const f=el.files[0]; el.value=''; if(!f) return;
+    try{state=normalize(JSON.parse(await f.text()));state.example=false;save();render();toast('ההזמנה נטענה');}
+    catch(err){toast('הקובץ אינו קובץ הזמנה תקין');}
+    return;
+  }
+  if(el.dataset.f==='img'){
+    const f=el.files[0]; if(!f) return; const {v}=find(el); if(!v) return;
+    try{Object.assign(v,await loadImage(f));touched();
+      const t=el.closest('.thumb');t.classList.add('has');t.style.backgroundImage='url('+v.img+')';t.lastChild.nodeType===3&&t.lastChild.remove();
+    }catch(err){toast('לא ניתן לקרוא את התמונה');}
+  }
+});
+let armed=null;
+document.addEventListener('click',e=>{
+  const cur=e.target.closest('[data-cur]');
+  if(cur){const {m}=find(cur); if(!m) return; m.cur=cur.dataset.cur; state.lastCur=m.cur;
+    cur.parentNode.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b===cur)); touched(); refresh(); return;}
+  const b=e.target.closest('[data-act]'); if(!b) return;
+  const act=b.dataset.act;
+  if(b.dataset.confirm && armed!==b){
+    if(armed){armed.classList.remove('armed');armed.textContent=armed.dataset.label;}
+    armed=b; b.dataset.label=b.textContent; b.textContent='ללחוץ שוב לאישור'; b.classList.add('armed');
+    setTimeout(()=>{if(armed===b){b.classList.remove('armed');b.textContent=b.dataset.label;armed=null}},3500); return;
+  }
+  armed=null;
+  const {m,v}=find(b);
+  if(act==='addm'){const nm=newModel(nextStyle());state.models.push(nm);touched();render();const i=$('#s-'+nm.id);i.focus();i.scrollIntoView({block:'center'});}
+  else if(act==='addv'&&m){
+    const last=m.variants[m.variants.length-1];
+    if(m.variants.length===1&&!last.letter) last.letter='A';
+    const nv=newVariant(last); nv.letter=nextLetter(m); m.variants.push(nv); touched(); render(); $('#c-'+nv.id).focus();
+  }
+  else if(act==='delv'&&m&&v){ if(m.variants.length===1){toast('לדגם חייב להיות קומבו אחד לפחות. אפשר למחוק את הדגם כולו.');return} m.variants=m.variants.filter(x=>x!==v); touched(); render(); }
+  else if(act==='delm'&&m){state.models=state.models.filter(x=>x!==m);touched();render();}
+  else if(act==='dup'&&m){
+    const c=JSON.parse(JSON.stringify(m)); c.id=uid(); c.style=nextStyle(); c.variants.forEach(x=>x.id=uid());
+    state.models.push(c); touched(); render(); const i=$('#s-'+c.id); i.focus(); i.scrollIntoView({block:'center'});
+  }
+  else if(act==='new'){const keep=state.rates,t=state.example?'':state.title,fac=state.example?'':state.factory;state=blank();state.rates=keep;state.title=t;state.factory=fac;state.models=[newModel('')];save();render();window.scrollTo(0,0);$('#o-title').focus();}
+  else if(act==='xlsx'){exportXlsx().catch(err=>{console.error(err);toast('יצירת האקסל נכשלה');});}
+  else if(act==='savejson'){saveFile(fileBase()+'.json',new Blob([JSON.stringify(state)],{type:'application/json'}));}
+  else if(act==='rates'){fetchRates(false);}
+});
+
+window.__orders={get state(){return state}};
+render();
+fetchRates(true);
+})();
+</script>
+</body>
+</html>
