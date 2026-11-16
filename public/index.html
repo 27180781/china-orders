@@ -79,6 +79,8 @@ input:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 
 .rate-note{font-size:13px;color:var(--muted);flex:1 1 220px;align-self:center}
 .rate-note.bad{color:var(--warn)}
 
+.import-choice{background:var(--surface);border:2px solid var(--accent);border-radius:var(--r);padding:12px 14px;display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.import-choice span{flex:1 1 260px;font-weight:500}
 .example{background:var(--accent-soft);border-radius:var(--r);padding:9px 14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
 
 /* model */
@@ -136,7 +138,9 @@ input:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 
 <div class="wrap">
   <div class="head"><h1>הזמנות לסין</h1><p>בונים דגמים וקומבואים, ומורידים קובץ אקסל מוכן לשליחה למפעל.</p></div>
 
-  <div class="example" id="example" hidden><span>אלה נתוני דוגמה מתוך הקובץ ששלחת, כדי לראות איך זה עובד.</span><button class="btn" data-act="new">נקה והתחל הזמנה חדשה</button></div>
+  <div class="example" id="example" hidden><span>אלה נתוני דוגמה מתוך הקובץ ששלחת, כדי לראות איך זה עובד.</span><span style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn">ייבוא מאקסל<input type="file" class="import-xlsx" id="import-xlsx-top" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label><button class="btn" data-act="new">נקה והתחל הזמנה חדשה</button></span></div>
+
+  <div class="import-choice" id="import-choice" hidden role="alert"><span id="import-msg"></span><button class="btn primary" data-act="imp-replace">החלף את ההזמנה הנוכחית</button><button class="btn" data-act="imp-append">הוסף לדגמים הקיימים</button><button class="btn" data-act="imp-cancel">ביטול</button></div>
 
   <div class="panel">
     <h2>פרטי ההזמנה</h2>
@@ -162,6 +166,7 @@ input:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 
     <div class="actions">
       <button class="btn primary" data-act="xlsx">הורד אקסל להזמנה</button>
       <button class="btn" data-act="savejson">שמור קובץ הזמנה</button>
+      <label class="btn">ייבוא מאקסל<input type="file" class="import-xlsx" id="import-xlsx" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden></label>
       <label class="btn">טען קובץ הזמנה<input type="file" id="load-json" accept=".json,application/json" hidden></label>
       <button class="btn danger" data-act="new" data-confirm="1">הזמנה חדשה</button>
     </div>
@@ -172,6 +177,7 @@ input:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 
 </div>
 
 <script src="vendor/exceljs.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
 <script>
 (function(){
 'use strict';
@@ -378,6 +384,147 @@ async function exportXlsx(){
   await saveFile(fileBase()+'.xlsx',new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
 }
 
+/* ---------- Excel import ---------- */
+const RNS='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+async function parseOrderXlsx(file){
+  if(!window.JSZip) throw new Error('nolib');
+  const zip=await JSZip.loadAsync(await file.arrayBuffer());
+  const T=(el,name)=>Array.from(el.getElementsByTagNameNS('*',name));
+  const xml=async path=>{const f=zip.file(path); return f?new DOMParser().parseFromString(await f.async('string'),'application/xml'):null};
+  const resolve=(dir,t)=>{if(t.startsWith('/')) return t.slice(1); const out=[]; for(const part of (dir+t).split('/')){ if(part==='..') out.pop(); else if(part&&part!=='.') out.push(part);} return out.join('/')};
+  const relsOf=async path=>{const i=path.lastIndexOf('/'), dir=path.slice(0,i+1); const d=await xml(dir+'_rels/'+path.slice(i+1)+'.rels'); const m={};
+    if(d) T(d,'Relationship').forEach(r=>{m[r.getAttribute('Id')]=resolve(dir,r.getAttribute('Target'))}); return m};
+  const rid=el=>el.getAttributeNS(RNS,'id')||el.getAttribute('r:id');
+
+  const wbx=await xml('xl/workbook.xml'); if(!wbx) throw new Error('notxlsx');
+  const sheetEl=T(wbx,'sheet')[0]; const wbRels=await relsOf('xl/workbook.xml');
+  const sheetPath=(sheetEl&&wbRels[rid(sheetEl)])||'xl/worksheets/sheet1.xml';
+
+  const sst=[]; const ssd=await xml('xl/sharedStrings.xml');
+  if(ssd) T(ssd,'si').forEach(si=>sst.push(T(si,'t').filter(t=>t.parentNode.localName!=='rPh').map(t=>t.textContent).join('')));
+  const sd=await xml(sheetPath); if(!sd) throw new Error('notxlsx');
+  const cells={}; let maxRow=0, maxCol=0;
+  const colNum=s=>{let x=0; for(const ch of s) x=x*26+ch.charCodeAt(0)-64; return x};
+  T(sd,'c').forEach(c=>{
+    const m=(c.getAttribute('r')||'').match(/^([A-Z]+)(\d+)$/); if(!m) return;
+    const t=c.getAttribute('t'), v=T(c,'v')[0]; let val=null;
+    if(t==='s') val=v?sst[+v.textContent]:null;
+    else if(t==='inlineStr') val=T(c,'t').map(x=>x.textContent).join('');
+    else if(v) val=(t==='str'||t==='e'||t==='d')?v.textContent:(t==='b'?v.textContent==='1':Number(v.textContent));
+    if(val==null||val==='') return;
+    const r=+m[2], col=colNum(m[1]); cells[r+','+col]=val; maxRow=Math.max(maxRow,r); maxCol=Math.max(maxCol,col);
+  });
+  const txt=(r,c)=>{const v=cells[r+','+c]; return v==null?'':String(v).trim()};
+  const up=(r,c)=>txt(r,c).toUpperCase();
+
+  // header row: the one that has STYLE NO
+  let hr=0, styleCol=0;
+  for(let r=1;r<=Math.min(maxRow,40)&&!hr;r++) for(let c=1;c<=maxCol;c++){const h=up(r,c).replace(/\s+/g,' '); if(h==='STYLE NO'||h==='STYLE NO.'||h==='STYLE'||h==='מספר דגם'){hr=r;styleCol=c;break}}
+  if(!hr) throw new Error('noheader');
+  let factoryCol=0, descCol=0, imageCol=0, qtyCol=0; const sizeCols=[];
+  for(let c=1;c<=maxCol;c++){
+    const h=up(hr,c); if(!h||c===styleCol) continue;
+    if(h.startsWith('FACTORY')||h==='מפעל') factoryCol=c;
+    else if(['תאור','תיאור','DESCRIPTION','DESC'].includes(h)) descCol=c;
+    else if(['IMAGE','PICTURE','PHOTO','תמונה'].includes(h)) imageCol=c;
+    else if(['QTY','PACKS','כמות','חבילות'].includes(h)) qtyCol=c;
+    else if(['PCS','TOTAL PCS','UNITS','יחידות'].includes(h)) {}
+    else if(!qtyCol) sizeCols.push(c);
+  }
+  const sizes=sizeCols.map(c=>up(hr,c));
+
+  let title='', date='';
+  for(let r=1;r<hr;r++){ for(let c=1;c<=maxCol;c++){const t=txt(r,c); if(!t) continue;
+    if(/^DATE/i.test(t)||/^תאריך/.test(t)){const d1=t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/), d2=t.match(/(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})/);
+      if(d1) date=d1[1]+'-'+d1[2].padStart(2,'0')+'-'+d1[3].padStart(2,'0'); else if(d2) date=d2[3]+'-'+d2[2].padStart(2,'0')+'-'+d2[1].padStart(2,'0');}
+    else if(!title) title=t; break; } }
+
+  // images by anchor row
+  const imgByRow={};
+  const sheetRels=await relsOf(sheetPath);
+  for(const dEl of T(sd,'drawing')){
+    const dPath=sheetRels[rid(dEl)]; if(!dPath) continue;
+    const dd=await xml(dPath); if(!dd) continue; const dRels=await relsOf(dPath);
+    for(const a of [...T(dd,'twoCellAnchor'),...T(dd,'oneCellAnchor')]){
+      const from=T(a,'from')[0], blip=T(a,'blip')[0]; if(!from||!blip) continue;
+      const row=+T(from,'row')[0].textContent+1, path=dRels[blip.getAttributeNS(RNS,'embed')||blip.getAttribute('r:embed')];
+      if(path&&!imgByRow[row]) imgByRow[row]=path;
+    }
+  }
+
+  // data rows
+  const rows=[]; let factory='';
+  for(let r=hr+1;r<=maxRow;r++){
+    const style=txt(r,styleCol);
+    if(!style){ if([descCol,styleCol,1,2,3].some(c=>c&&up(r,c)==='TOTAL')) break; continue; }
+    if(factoryCol&&!factory) factory=txt(r,factoryCol);
+    const ratio={}; sizeCols.forEach((c,i)=>{const v=n(cells[r+','+c]); if(v) ratio[sizes[i]]=v});
+    rows.push({r,style,desc:descCol?txt(r,descCol):'',ratio,packs:qtyCol?(n(cells[r+','+qtyCol])||''):''});
+  }
+
+  // group rows into models by the style number without its combo letter
+  const groups=[], byBase={};
+  for(const row of rows){
+    const m=row.style.match(/^(.*\d)\s*([A-Za-z]{1,2})$/);
+    const base=m?m[1]:row.style, letter=m?m[2].toUpperCase():'';
+    if(!byBase[base]){byBase[base]={base,rows:[]};groups.push(byBase[base])}
+    byBase[base].rows.push({...row,letter});
+  }
+  let imgCount=0, imgFailed=0;
+  const models=[];
+  for(const g of groups){
+    const descs=g.rows.map(x=>x.desc); let shared=descs[0]||'', cut=-1;
+    if(g.rows.length>1){
+      let k=0; while(k<shared.length&&descs.every(d=>d[k]===shared[k])) k++;
+      const pre=shared.slice(0,k);
+      if(descs.every(d=>d===shared)) cut=shared.length;
+      else { const i=Math.max(pre.lastIndexOf('. '),pre.lastIndexOf(', '),pre.lastIndexOf('.\n')); cut=i>=0?i+1:0; }
+    } else cut=shared.length;
+    const model={id:uid(),style:g.base,desc:shared.slice(0,cut).trim(),price:'',cur:state.lastCur||'CNY',variants:[]};
+    for(const x of g.rows){
+      const v={id:uid(),letter:x.letter,color:x.desc.slice(cut).trim(),img:null,iw:0,ih:0,ratio:x.ratio,packs:x.packs};
+      const ip=imgByRow[x.r];
+      if(ip&&zip.file(ip)){
+        try{Object.assign(v,await loadImage(await zip.file(ip).async('blob'))); imgCount++;}catch(e){imgFailed++}
+      }
+      model.variants.push(v);
+    }
+    models.push(model);
+  }
+  const sums={}; models.forEach(m=>m.variants.forEach(v=>{const t=sizes.reduce((a,s)=>a+n(v.ratio[s]),0); if(t) sums[t]=(sums[t]||0)+1}));
+  const packSize=+(Object.entries(sums).sort((a,b)=>b[1]-a[1])[0]||[0])[0];
+  return {title,date,factory,sizes,models,packSize,imgCount,imgFailed,combos:rows.length};
+}
+
+let pendingImport=null;
+async function onImportFile(f){
+  toast('קורא את הקובץ…',15000);
+  let res;
+  try{res=await parseOrderXlsx(f)}
+  catch(e){console.error(e); toast(e.message==='noheader'?'לא נמצאה בקובץ שורת כותרות עם STYLE NO.':'לא ניתן לקרוא את הקובץ. ודא שזה קובץ אקסל מסוג ‎.xlsx',5000); return}
+  if(!res.models.length){toast('לא נמצאו דגמים בקובץ',4000);return}
+  const hasData=!state.example&&state.models.some(m=>m.style||m.desc||m.variants.some(v=>n(v.packs)||v.color||v.img));
+  if(!hasData){applyImport(res,'replace');return}
+  pendingImport=res;
+  $('#import-msg').textContent='בקובץ נמצאו '+res.models.length+' דגמים, '+res.combos+' קומבואים ו-'+res.imgCount+' תמונות. מה לעשות עם ההזמנה הנוכחית?';
+  $('#toast').hidden=true; const box=$('#import-choice'); box.hidden=false; box.scrollIntoView({block:'center',behavior:'smooth'});
+}
+function applyImport(res,mode){
+  if(mode==='replace'){
+    const keep=state.rates; state=blank(); state.rates=keep;
+    state.title=res.title; state.date=res.date||today(); state.factory=res.factory;
+    if(res.sizes.length) state.sizes=res.sizes; if(res.packSize) state.packSize=res.packSize;
+    state.models=res.models;
+  } else {
+    for(const sz of res.sizes) if(!state.sizes.includes(sz)) state.sizes.push(sz);
+    if(!state.factory) state.factory=res.factory;
+    state.models.push(...res.models);
+  }
+  state.example=false; pendingImport=null; $('#import-choice').hidden=true;
+  save(); render();
+  toast('יובאו '+res.models.length+' דגמים, '+res.combos+' קומבואים ו-'+res.imgCount+' תמונות'+(res.imgFailed?' ('+res.imgFailed+' תמונות לא נקראו)':'')+'. אפשר להוסיף עלות לכל דגם.',6000);
+}
+
 /* ---------- exchange rates ---------- */
 async function fetchRates(silent){
   if(!silent) rateNote('מעדכן שער…');
@@ -440,6 +587,7 @@ document.addEventListener('change',async e=>{
     if(list.length){state.sizes=list;touched();render();} else el.value=state.sizes.join(', ');
     return;
   }
+  if(el.classList.contains('import-xlsx')){const f=el.files[0]; el.value=''; if(f) onImportFile(f); return;}
   if(el.id==='load-json'){
     const f=el.files[0]; el.value=''; if(!f) return;
     try{state=normalize(JSON.parse(await f.text()));state.example=false;save();render();toast('ההזמנה נטענה');}
@@ -483,6 +631,9 @@ document.addEventListener('click',e=>{
   else if(act==='xlsx'){exportXlsx().catch(err=>{console.error(err);toast('יצירת האקסל נכשלה');});}
   else if(act==='savejson'){saveFile(fileBase()+'.json',new Blob([JSON.stringify(state)],{type:'application/json'}));}
   else if(act==='rates'){fetchRates(false);}
+  else if(act==='imp-replace'&&pendingImport){applyImport(pendingImport,'replace');}
+  else if(act==='imp-append'&&pendingImport){applyImport(pendingImport,'append');}
+  else if(act==='imp-cancel'){pendingImport=null;$('#import-choice').hidden=true;}
 });
 
 window.__orders={get state(){return state}};
