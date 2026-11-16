@@ -103,7 +103,10 @@ input:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 
 .sz{display:flex;flex-direction:column;align-items:center;gap:3px}
 .sz span{font-size:11.5px;color:var(--muted);font-weight:500;letter-spacing:.03em}
 .sz input{width:38px;text-align:center;padding:6px 2px}
-.sum{align-self:flex-end;margin-inline-start:4px;font-size:12.5px;font-weight:700;border-radius:99px;padding:6px 9px;background:var(--ok-soft);color:var(--ok);font-variant-numeric:tabular-nums;white-space:nowrap}
+.sz small{font-size:11px;line-height:1.2;min-height:1.2em;color:var(--accent);font-weight:500;font-variant-numeric:tabular-nums}
+.sz-sum{margin-inline-start:4px}
+.sz-sum small{font-weight:700}
+.sum{font-size:12.5px;font-weight:700;border-radius:99px;padding:6px 9px;background:var(--ok-soft);color:var(--ok);font-variant-numeric:tabular-nums;white-space:nowrap}
 .sum.off{background:var(--bad-soft);color:var(--bad)}
 .packs input{width:64px;text-align:center;font-weight:700}
 .pcs output{display:block;padding:6px 0;min-width:48px;font-weight:700;font-variant-numeric:tabular-nums}
@@ -121,7 +124,7 @@ input:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 
 .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .check{display:flex;gap:6px;align-items:center;font-size:13.5px;color:var(--muted)}
 .toast{position:fixed;inset-inline:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));margin:0 auto;width:max-content;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:9px;z-index:20;font-weight:500;text-align:center}
-@media (max-width:560px){ .stat b{font-size:17px} .stat.total b{font-size:20px} .bar-in{gap:6px 16px} }
+@media (max-width:560px){ .sz input{width:33px} .sizes{gap:3px} .sum{padding:6px 7px} .stat b{font-size:17px} .stat.total b{font-size:20px} .bar-in{gap:6px 16px} }
 </style>
 
 <div dir="rtl" lang="he">
@@ -250,7 +253,9 @@ function refresh(){
     const el=document.querySelector('[data-m="'+m.id+'"]'); if(!el) continue;
     for(const v of m.variants){
       const ve=el.querySelector('[data-v="'+v.id+'"]'); if(!ve) continue;
-      const rs=ratioSum(v), sum=ve.querySelector('[data-out=sum]');
+      const rs=ratioSum(v), sum=ve.querySelector('[data-out=sum]'), pk=n(v.packs);
+      ve.querySelectorAll('[data-out=sz]').forEach(o=>{const t=n(v.ratio[o.dataset.s])*pk; o.textContent=t?nf.format(t):''});
+      ve.querySelector('[data-out=sztot]').textContent=rs*pk?nf.format(rs*pk):'';
       sum.textContent=rs+' / '+pack; sum.classList.toggle('off',rs!==pack);
       sum.title=rs===pack?'החבילה מלאה':'חבילה צריכה להכיל '+pack+' יחידות';
       ve.querySelector('[data-out=pcs]').textContent=nf.format(vPcs(v));
@@ -275,12 +280,12 @@ function refresh(){
 
 /* ---------- rendering ---------- */
 function variantHTML(v){
-  const sizes=state.sizes.map(s=>'<label class="sz"><span>'+esc(s)+'</span><input type="text" id="r-'+v.id+'-'+esc(s)+'" data-f="ratio" data-s="'+esc(s)+'" inputmode="numeric" value="'+esc(v.ratio[s]||'')+'"></label>').join('');
+  const sizes=state.sizes.map(s=>'<label class="sz"><span>'+esc(s)+'</span><input type="text" id="r-'+v.id+'-'+esc(s)+'" data-f="ratio" data-s="'+esc(s)+'" inputmode="numeric" value="'+esc(v.ratio[s]||'')+'"><small data-out="sz" data-s="'+esc(s)+'" title="יחידות בסה״כ במידה הזו"></small></label>').join('');
   return '<div class="variant" data-v="'+v.id+'">'
    +'<label class="thumb'+(v.img?' has':'')+'" title="'+(v.img?'החלף תמונה':'הוסף תמונה')+'"'+(v.img?' style="background-image:url('+v.img+')"':'')+'><input type="file" id="img-'+v.id+'" accept="image/*" hidden data-f="img">'+(v.img?'':'+ תמונה')+'</label>'
    +'<label class="fld letter"><span>קומבו</span><input type="text" id="l-'+v.id+'" data-f="letter" dir="ltr" maxlength="4" value="'+esc(v.letter)+'"></label>'
    +'<label class="fld grow"><span>צבע / פרטי הקומבו</span><input type="text" id="c-'+v.id+'" data-f="color" value="'+esc(v.color)+'"></label>'
-   +'<div class="sizes" dir="ltr">'+sizes+'<span class="sum num" data-out="sum"></span></div>'
+   +'<div class="sizes" dir="ltr">'+sizes+'<div class="sz sz-sum"><span>&nbsp;</span><span class="sum num" data-out="sum"></span><small data-out="sztot" title="יחידות בסה״כ בקומבו"></small></div></div>'
    +'<label class="fld packs"><span>חבילות</span><input type="text" id="p-'+v.id+'" data-f="packs" inputmode="numeric" dir="ltr" value="'+esc(v.packs)+'"></label>'
    +'<div class="fld pcs"><span>יחידות</span><output data-out="pcs"></output></div>'
    +'<button class="x" data-act="delv" aria-label="מחק קומבו" title="מחק קומבו">×</button></div>';
