@@ -381,15 +381,34 @@ async function exportXlsx(){
 /* ---------- exchange rates ---------- */
 async function fetchRates(silent){
   if(!silent) rateNote('מעדכן שער…');
+  const stamp=()=>new Date().toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'});
+  const getJSON=async url=>{const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return r.json()};
+  // USD->CNY cross rate, used when the Bank of Israel list has no yuan
+  const usdCny=async()=>{
+    try{const d=await getJSON('https://open.er-api.com/v6/latest/USD'); if(d.rates&&d.rates.CNY) return d.rates.CNY}catch(e){}
+    try{const d=await getJSON('https://api.frankfurter.app/latest?from=USD&to=CNY'); if(d.rates&&d.rates.CNY) return d.rates.CNY}catch(e){}
+    return 0;
+  };
   const sources=[
-    async()=>{const d=await (await fetch('https://open.er-api.com/v6/latest/USD')).json(); if(!d.rates||!d.rates.ILS) throw 0; return {USD:d.rates.ILS,CNY:d.rates.ILS/d.rates.CNY}},
-    async()=>{const d=await (await fetch('https://api.frankfurter.app/latest?from=USD&to=ILS,CNY')).json(); if(!d.rates||!d.rates.ILS) throw 0; return {USD:d.rates.ILS,CNY:d.rates.ILS/d.rates.CNY}}
+    // Bank of Israel representative rates, through the site's own /api/boi-rates route
+    async()=>{
+      const d=await getJSON('/api/boi-rates'); const list=d.exchangeRates||d.ExchangeRates||[];
+      const pick=k=>{const x=list.find(r=>String(r.key||r.Key).toUpperCase()===k); if(!x) return 0; const v=n(x.currentExchangeRate??x.CurrentExchangeRate), u=n(x.unit??x.Unit)||1; return v>0?v/u:0};
+      const usd=pick('USD'); if(!usd) throw 0;
+      let cny=pick('CNY'), cross=false;
+      if(!cny){const c=await usdCny(); if(c){cny=usd/c; cross=true}}
+      const upd=(list.find(r=>String(r.key||r.Key).toUpperCase()==='USD')||{}).lastUpdate;
+      const day=upd?new Date(upd).toLocaleDateString('he-IL'):'';
+      return {USD:usd,CNY:cny,note:'שער יציג של בנק ישראל'+(day?' מ-'+day:'')+(cross?'. שער היואן מחושב לפי הדולר היציג.':'.')};
+    },
+    async()=>{const d=await getJSON('https://open.er-api.com/v6/latest/USD'); if(!d.rates||!d.rates.ILS) throw 0; return {USD:d.rates.ILS,CNY:d.rates.ILS/d.rates.CNY,note:'שער בינלאומי (לא בנק ישראל), עודכן ב-'+stamp()+'.'}},
+    async()=>{const d=await getJSON('https://api.frankfurter.app/latest?from=USD&to=ILS,CNY'); if(!d.rates||!d.rates.ILS) throw 0; return {USD:d.rates.ILS,CNY:d.rates.ILS/d.rates.CNY,note:'שער בינלאומי (לא בנק ישראל), עודכן ב-'+stamp()+'.'}}
   ];
   for(const src of sources){
     try{
       const x=await src();
-      state.rates.USD=x.USD.toFixed(4); state.rates.CNY=x.CNY.toFixed(4);
-      state.rates.note='השער עודכן אוטומטית ב-'+new Date().toLocaleString('he-IL',{dateStyle:'short',timeStyle:'short'})+'.';
+      state.rates.USD=x.USD.toFixed(4); if(x.CNY>0) state.rates.CNY=x.CNY.toFixed(4);
+      state.rates.note=x.note;
       $('#r-usd').value=state.rates.USD; $('#r-cny').value=state.rates.CNY; rateNote(); refresh(); save(); return;
     }catch(e){}
   }
