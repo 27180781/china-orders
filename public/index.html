@@ -112,6 +112,9 @@ input:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 
 .s-combo span{text-align:end;white-space:nowrap}
 .s-combo .of-order{color:var(--ink);font-weight:500}
 .s-empty{color:var(--muted);margin:0}
+.s-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.s-tools .seg{width:max-content}
+#sum-note{color:var(--warn);font-size:12.5px}
 .model.flash{box-shadow:0 0 0 3px var(--accent)}
 .model{transition:box-shadow .4s;scroll-margin-top:110px}
 .example{background:var(--accent-soft);border-radius:var(--r);padding:9px 14px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between}
@@ -122,6 +125,8 @@ input:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 
 .m-head .style input{font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:.02em}
 .price-row{display:flex;gap:6px}
 .price-row input{width:86px}
+.price-ils{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;min-height:1.3em}
+.price-ils b{color:var(--accent);font-family:var(--display);font-size:15px}
 .seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
 .seg button{border:0;background:var(--sunken);padding:6px 10px;cursor:pointer;white-space:nowrap}
 .seg button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);font-weight:700}
@@ -179,7 +184,8 @@ input:focus,textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 
   <div class="import-choice" id="import-choice" hidden role="alert"><span id="import-msg"></span><button class="btn primary" data-act="imp-replace">החלף את ההזמנה הנוכחית</button><button class="btn" data-act="imp-append">הוסף לדגמים הקיימים</button><button class="btn" data-act="imp-cancel">ביטול</button></div>
 
   <details class="panel summary" id="summary" open>
-    <summary><h2>פילוח ההזמנה</h2><small>לפי יחידות · אחוז לכל דגם מכל ההזמנה, ולכל קומבו מתוך הדגם ומכל ההזמנה</small></summary>
+    <summary><h2>פילוח ההזמנה</h2><small>אחוז לכל דגם מכל ההזמנה, ולכל קומבו מתוך הדגם ומכל ההזמנה</small></summary>
+    <div class="s-tools"><div class="seg" role="group" aria-label="פילוח לפי"><button data-sumby="pcs" aria-pressed="true">לפי יחידות</button><button data-sumby="cost" aria-pressed="false">לפי עלות</button></div><small id="sum-note"></small></div>
     <div id="sum-body"></div>
   </details>
 
@@ -288,20 +294,38 @@ function totals(){
 const pf=new Intl.NumberFormat('en-US',{maximumFractionDigits:1});
 const pct=(a,b)=>b>0?a/b*100:0;
 const pctTxt=x=>pf.format(x)+'%';
+let sumBy='pcs';
+try{if(localStorage.getItem(KEY+':sumby')==='cost') sumBy='cost'}catch(e){}
 function renderSummary(){
   const body=$('#sum-body'); if(!body) return;
-  const total=state.models.reduce((a,m)=>a+mPcs(m),0);
-  if(!state.models.length||!total){body.innerHTML='<p class="s-empty">הפילוח יופיע כאן אחרי שתזין חבילות לקומבואים.</p>';return}
+  document.querySelectorAll('[data-sumby]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.sumby===sumBy));
+  const note=$('#sum-note'); note.textContent='';
+  const byCost=sumBy==='cost';
+  let conv=()=>1, unit='pcs';
+  if(byCost){
+    const curs=[...new Set(state.models.filter(m=>n(m.price)>0&&mPcs(m)>0).map(m=>m.cur))];
+    if(curs.length&&curs.every(c=>rate(c)>0)){conv=c=>rate(c);unit='ILS'}
+    else if(curs.length===1){unit=curs[0]}
+    else if(curs.length>1){body.innerHTML='<p class="s-empty">יש דגמים בדולר ודגמים ביואן. כדי להשוות ביניהם צריך שער המרה לשניהם בפרטי ההזמנה.</p>';return}
+    const noPrice=state.models.filter(m=>mPcs(m)>0&&!(n(m.price)>0)).length;
+    if(noPrice) note.textContent=(noPrice===1?'דגם אחד בלי עלות ליחידה לא נכלל בפילוח.':noPrice+' דגמים בלי עלות ליחידה לא נכללים בפילוח.');
+  }
+  const vVal=(m,v)=>byCost?vPcs(v)*n(m.price)*conv(m.cur):vPcs(v);
+  const mVal=m=>m.variants.reduce((a,v)=>a+vVal(m,v),0);
+  const amount=x=>unit==='pcs'?nf.format(x)+' יח׳':unit==='ILS'?ils(x):money(unit,x);
+  const total=state.models.reduce((a,m)=>a+mVal(m),0);
+  if(!state.models.length||!total){body.innerHTML='<p class="s-empty">'+(byCost?'הפילוח לפי עלות יופיע כאן אחרי שתזין עלות ליחידה לדגמים.':'הפילוח יופיע כאן אחרי שתזין חבילות לקומבואים.')+'</p>';return}
   const col=i=>'var(--c'+(i%6+1)+')';
-  const stack=state.models.map((m,i)=>{const p=pct(mPcs(m),total); if(!p) return '';
+  const stack=state.models.map((m,i)=>{const p=pct(mVal(m),total); if(!p) return '';
     return '<i style="width:'+p+'%;background:'+col(i)+'" title="'+esc(m.style||'דגם')+' · '+pctTxt(p)+'">'+(p>=9?esc(m.style||'')+' '+Math.round(p)+'%':'')+'</i>'}).join('');
   const cards=state.models.map((m,i)=>{
-    const mp=mPcs(m), p=pct(mp,total);
-    const combos=m.variants.map(v=>{const vp=vPcs(v), inM=pct(vp,mp), inO=pct(vp,total);
+    const mv=mVal(m), p=pct(mv,total);
+    if(byCost&&!mv) return '';
+    const combos=m.variants.map(v=>{const vv=vVal(m,v), inM=pct(vv,mv), inO=pct(vv,total);
       return '<div class="s-combo"><b dir="ltr">'+esc(v.letter||'–')+'</b><div class="mini"><i style="width:'+inM+'%;background:'+col(i)+'"></i></div>'
         +'<span title="מתוך הדגם">'+pctTxt(inM)+' מהדגם</span><span class="of-order" title="מכל ההזמנה">'+pctTxt(inO)+' מההזמנה</span></div>'}).join('');
     return '<div class="s-model"><button class="s-head" data-goto="'+m.id+'" title="עבור לדגם"><i class="dot" style="background:'+col(i)+'"></i><b dir="ltr">'+esc(m.style||'ללא מספר')+'</b>'
-      +'<span class="s-pcs">'+nf.format(mp)+' יח׳</span><span class="s-pct">'+pctTxt(p)+'</span></button>'
+      +'<span class="s-pcs" dir="'+(unit==='pcs'?'rtl':'ltr')+'">'+amount(mv)+'</span><span class="s-pct">'+pctTxt(p)+'</span></button>'
       +'<div class="s-bar"><i style="width:'+p+'%;background:'+col(i)+'"></i></div><div class="s-combos">'+combos+'</div></div>'}).join('');
   body.innerHTML='<div style="display:flex;flex-direction:column;gap:12px"><div class="stack" dir="rtl">'+stack+'</div><div class="s-list">'+cards+'</div></div>';
 }
@@ -319,6 +343,8 @@ function refresh(){
       ve.querySelector('[data-out=pcs]').textContent=nf.format(vPcs(v));
     }
     const pcs=mPcs(m), price=n(m.price), cost=price*pcs, out=el.querySelector('[data-out=mcost]');
+    const pils=el.querySelector('[data-out=pils]');
+    pils.innerHTML=price>0?(rate(m.cur)>0?'<b dir="ltr">₪'+nf.format(price*rate(m.cur))+'</b> ליחידה'+(pcs?' · <span dir="ltr">'+ils(cost*rate(m.cur))+'</span> לדגם':''):'אין שער המרה לשקלים'):'';
     let h='<b>'+nf.format(pcs)+'</b> יחידות לדגם';
     if(price>0){
       h+=' · עלות <b dir="ltr">'+money(m.cur,cost)+'</b>';
@@ -354,7 +380,7 @@ function modelHTML(m){
    +'<label class="fld style w-m"><span>מספר דגם</span><input type="text" id="s-'+m.id+'" data-f="style" dir="ltr" value="'+esc(m.style)+'"></label>'
    +'<label class="fld grow"><span>תיאור הדגם (משותף לכל הקומבואים)</span><textarea id="d-'+m.id+'" data-f="desc" rows="2">'+esc(m.desc)+'</textarea></label>'
    +'<div class="fld"><span>עלות ליחידה</span><div class="price-row"><input type="text" id="pr-'+m.id+'" data-f="price" inputmode="decimal" dir="ltr" value="'+esc(m.price)+'">'
-   +'<div class="seg" dir="ltr"><button data-cur="CNY" aria-pressed="'+(m.cur==='CNY')+'">¥ RMB</button><button data-cur="USD" aria-pressed="'+(m.cur==='USD')+'">$ USD</button></div></div></div>'
+   +'<div class="seg" dir="ltr"><button data-cur="CNY" aria-pressed="'+(m.cur==='CNY')+'">¥ RMB</button><button data-cur="USD" aria-pressed="'+(m.cur==='USD')+'">$ USD</button></div></div><div class="price-ils" data-out="pils"></div></div>'
    +'</div><div class="variants">'+m.variants.map(variantHTML).join('')+'</div>'
    +'<div class="m-foot"><div class="m-actions"><button class="btn" data-act="addv">+ קומבו</button><button class="btn" data-act="dup">שכפל דגם</button><button class="btn danger" data-act="delm" data-confirm="1">מחק דגם</button></div>'
    +'<div class="m-cost" data-out="mcost"></div></div></section>';
@@ -667,6 +693,8 @@ document.addEventListener('change',async e=>{
 });
 let armed=null;
 document.addEventListener('click',e=>{
+  const sb=e.target.closest('[data-sumby]');
+  if(sb){sumBy=sb.dataset.sumby; try{localStorage.setItem(KEY+':sumby',sumBy)}catch(err){} renderSummary(); return;}
   const go=e.target.closest('[data-goto]');
   if(go){const sec=document.querySelector('[data-m="'+go.dataset.goto+'"]'); if(sec){sec.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'}); sec.classList.add('flash'); setTimeout(()=>sec.classList.remove('flash'),1200);} return;}
   const cur=e.target.closest('[data-cur]');
