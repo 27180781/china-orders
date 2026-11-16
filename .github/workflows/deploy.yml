@@ -1,0 +1,33 @@
+name: Deploy to CapRover
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: caprover-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CAPROVER_APP: china-orders
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Pack the project
+        run: tar --exclude='.git' --exclude='./deploy.tar' -cf deploy.tar .
+
+      - name: Deploy
+        run: |
+          npx --yes caprover deploy \
+            --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
+            --appToken "${{ secrets.CAPROVER_APP_TOKEN }}" \
+            --appName "$CAPROVER_APP" \
+            --tarFile ./deploy.tar

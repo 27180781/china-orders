@@ -10,7 +10,15 @@
 
 ## פריסה ב-CapRover
 
-הפרויקט כולל `captain-definition` ו-`Dockerfile` (nginx). כל דחיפה לענף `main` נפרסת אוטומטית דרך ה-Webhook של CapRover.
+הפרויקט כולל `captain-definition` ו-`Dockerfile` (nginx). כל דחיפה לענף `main` נפרסת אוטומטית דרך GitHub Actions (`.github/workflows/deploy.yml`).
+
+הגדרה חד-פעמית:
+1. ב-CapRover: אפליקציה בשם `china-orders` ← Deployment ← Enable App Token, ולהעתיק את הטוקן.
+2. ב-GitHub: Settings ← Secrets and variables ← Actions, ולהוסיף:
+   - `CAPROVER_SERVER`: כתובת לוח הבקרה, למשל `https://captain.example.com`
+   - `CAPROVER_APP_TOKEN`: הטוקן מהשלב הקודם
+
+אם שם האפליקציה בקפרובר שונה, יש לעדכן את `CAPROVER_APP` בקובץ ה-workflow.
 
 ## הרצה מקומית
 
